@@ -1,0 +1,5 @@
+{
+  "name": "CineGlot - Vintage Movie English",
+  "description": "A skeuomorphic web app to learn English from .ass subtitles. Parse files, highlight vocabulary, and generate study guides using Gemini AI.",
+  "requestFramePermissions": []
+}

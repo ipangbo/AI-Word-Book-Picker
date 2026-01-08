@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CineGlot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Crimson Text"', 'serif'],
+              mono: ['"Special Elite"', 'monospace'],
+            },
+            colors: {
+              paper: '#fdfbf7',
+              leather: '#5d4037',
+              'leather-light': '#8d6e63',
+              'leather-dark': '#3e2723',
+              ink: '#2c3e50',
+            },
+            backgroundImage: {
+              'paper-texture': "url('https://www.transparenttextures.com/patterns/cream-paper.png')",
+              'leather-texture': "url('https://www.transparenttextures.com/patterns/black-scales.png')",
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      @media print {
+        .no-print { display: none !important; }
+        .print-only { display: block !important; }
+        
+        /* CRITICAL: Reset overflow for printing full height */
+        html, body, #root, main, #study-guide-container {
+            overflow: visible !important;
+            height: auto !important;
+            width: auto !important;
+            position: static !important;
+            background: white !important;
+        }
+        
+        .page-break { page-break-before: always; }
+        
+        /* Ensure the paper look is somewhat preserved but ink-saving */
+        .study-paper {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+      }
+      
+      /* Skeuomorphic Scrollbar */
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #e0e0e0;
+        border-left: 1px solid #ccc;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #8d6e63;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #5d4037;
+      }
+
+      .stitched {
+        border: 2px dashed #a1887f;
+        box-shadow: 0 0 0 4px #5d4037, inset 0 1px 4px rgba(0,0,0,0.5);
+      }
+
+      .pressed-text {
+        text-shadow: 0px 1px 1px rgba(255,255,255,0.3);
+      }
+      
+      .inset-shadow {
+        box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2), inset -1px -1px 2px rgba(255,255,255,0.5);
+      }
+      
+      .paper-shadow {
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+      }
+      
+      .binder-hole {
+        width: 20px;
+        height: 20px;
+        background: #2b2b2b; /* Background color peeking through */
+        border-radius: 50%;
+        box-shadow: inset 1px 2px 3px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.5);
+        position: relative;
+      }
+
+      /* Gem/Glass Button Base */
+      .gem-button {
+        position: relative;
+        border: 1px solid rgba(0,0,0,0.3);
+        border-bottom-color: rgba(0,0,0,0.5);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.6),
+          inset 0 0 10px rgba(255,255,255,0.1),
+          inset 0 -4px 4px rgba(0,0,0,0.1),
+          0 4px 6px rgba(0,0,0,0.4);
+        transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .gem-button::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 45%;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
+        border-radius: 3px 3px 60% 60% / 30%;
+        pointer-events: none;
+        transition: all 0.2s ease;
+      }
+
+      /* HOVER STATE: Brighter, Lifted, Stronger Reflections */
+      .gem-button:hover {
+        filter: brightness(1.1) contrast(1.05);
+        transform: translateY(-1px);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.9), /* Brighter top highlight */
+          inset 0 0 15px rgba(255,255,255,0.3), /* Glow fills button */
+          inset 0 -2px 3px rgba(0,0,0,0.05), /* Bottom shadow recedes */
+          0 6px 10px rgba(0,0,0,0.35); /* Drop shadow expands (lift) */
+      }
+      
+      .gem-button:hover::before {
+        opacity: 1;
+        height: 50%; /* Reflection grows slightly */
+        background: linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 100%);
+      }
+
+      .gem-button:active {
+        transform: translateY(2px);
+        box-shadow:
+          inset 0 3px 6px rgba(0,0,0,0.4),
+          0 1px 2px rgba(0,0,0,0.3);
+        transition: all 0.05s ease;
+      }
+      
+      .gem-button:active::before {
+        opacity: 0.4;
+      }
+      
+      .gem-button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+        filter: grayscale(0.8);
+      }
+
+      /* Gem Variants */
+      .gem-green { 
+        background: linear-gradient(180deg, #66bb6a 0%, #2e7d32 50%, #1b5e20 100%); 
+        color: white; 
+      }
+      .gem-silver { 
+        background: linear-gradient(180deg, #f5f5f5 0%, #bdbdbd 50%, #9e9e9e 100%); 
+        color: #333; 
+        text-shadow: 0 1px 0 rgba(255,255,255,0.8); 
+      }
+      .gem-amber { 
+        background: linear-gradient(180deg, #ffca28 0%, #ff8f00 50%, #ff6f00 100%); 
+        color: #3e2723; 
+        text-shadow: 0 1px 0 rgba(255,255,255,0.4); 
+      }
+
+      /* Liquid Highlight for Words (Selected) */
+      .liquid-highlight {
+        background: linear-gradient(180deg, rgba(255, 235, 59, 0.4) 0%, rgba(255, 193, 7, 0.8) 50%, rgba(255, 160, 0, 0.9) 100%);
+        box-shadow:
+          inset 0 1px 1px rgba(255,255,255, 0.9),
+          inset 0 -1px 2px rgba(0,0,0, 0.1),
+          0 2px 4px rgba(255, 193, 7, 0.4);
+        border-radius: 6px;
+        color: #271c19;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        position: relative;
+        z-index: 10;
+        padding: 2px 6px;
+        margin: 0 2px;
+      }
+      
+      .liquid-highlight::after {
+        content: '';
+        position: absolute;
+        top: 2px; right: 2px;
+        width: 6px; height: 3px;
+        background: rgba(255,255,255,0.7);
+        border-radius: 50%;
+        transform: rotate(-20deg);
+        filter: blur(0.5px);
+      }
+
+      /* Auto Highlight (Unknown Words) - Pressed/Debossed Style */
+      .auto-highlight {
+        background-color: rgba(0, 0, 0, 0.03);
+        box-shadow: 
+          inset 1px 2px 4px rgba(0,0,0,0.15), 
+          inset -1px -1px 2px rgba(255,255,255,0.7),
+          0 1px 0 rgba(255,255,255,0.5);
+        border-radius: 4px;
+        color: #5d4037;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+        padding: 1px 4px;
+        margin: 0 1px;
+        /* Subtle border to define the edge */
+        border-bottom: 1px solid rgba(255,255,255,0.6);
+        border-top: 1px solid rgba(0,0,0,0.05);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-[#2b2b2b] text-ink font-serif h-screen overflow-hidden">
+    <div id="root"></div>
+  </body>
+</html>
