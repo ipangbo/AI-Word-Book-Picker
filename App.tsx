@@ -467,7 +467,7 @@ function App() {
                 <StepCard 
                     number="01" 
                     title="CineGlot Player"
-                    desc="从电影或美剧的字幕文件(.ass)中筛选生词，自动提取真实语境例句。"
+                    desc="从电影或电视剧的字幕文件(.ass)中筛选生词，自动提取真实语境例句。"
                     link="#"
                     linkText="You are here"
                     color="border-red-400"
@@ -475,7 +475,7 @@ function App() {
                 
                 <StepCard 
                     number="02" 
-                    title="Aidan 词书助手"
+                    title="Ai单词书助手"
                     desc="基于生词列表，AI自动生成中文释义、音标，并整理成LaTeX代码供排版使用。"
                     link="https://chatgpt.com/g/g-680a05e7e40c819188f661e74f64e938-aidan-ci-shu-zhu-shou"
                     linkText="Open Chat Assistant"
@@ -485,7 +485,7 @@ function App() {
                 <StepCard 
                     number="03" 
                     title="AI Word Book"
-                    desc="专业的LaTeX模板与样式库，将字幕生词表一键制作成精美的出版级单词书(PDF)。"
+                    desc="专业的LaTeX模板与样式库，将字幕生词表一键制作成出版级单词书(PDF)。"
                     link="https://github.com/ipangbo/LaTeX-AI-Word-Book"
                     linkText="Get Templates"
                     color="border-green-400"
@@ -501,7 +501,7 @@ function App() {
                 />
             </div>
             <div className="mt-8 text-center text-sm text-gray-500 italic">
-                * 这一套闭环将帮助你把被动输入（看剧）转化为主动输出（记忆与复习）。
+                * 这一套闭环将帮助你把被动输入转化为主动输出（记忆与复习）。
             </div>
         </ModalOverlay>
       )}
