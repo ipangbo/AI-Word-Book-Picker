@@ -475,7 +475,7 @@ function App() {
                 
                 <StepCard 
                     number="02" 
-                    title="Ai单词书助手"
+                    title="AI单词书助手"
                     desc="基于生词列表，AI自动生成中文释义、音标，并整理成LaTeX代码供排版使用。"
                     link="https://chatgpt.com/g/g-680a05e7e40c819188f661e74f64e938-aidan-ci-shu-zhu-shou"
                     linkText="Open Chat Assistant"
