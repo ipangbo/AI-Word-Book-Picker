@@ -1,20 +1,71 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🎬 CineGlot - 复古电影英语学习助手
 
-# Run and deploy your AI Studio app
+**CineGlot** 是一款专为影迷和语言学习者设计的拟物化（Skeuomorphic）Web 应用。它将复古的模拟美学与先进的 AI 技术相结合，能够将原始的电影字幕转化为个性化、高语境的学习档案，助你通过电影真正掌握英语。
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/drive/1vthUcz3Yx_86VOX0-MTQ6JD3p8yV5YNY
+## 🌟 核心功能
 
-## Run Locally
+### 1. **精准字幕解析**
+- 支持 `.ass` 和 `.ssa` 高级字幕格式。
+- 智能分离英中双语轨道，提取纯净的对话文本。
+- 保留时间戳数据，确保学习过程具备完整的时序语境。
 
-**Prerequisites:**  Node.js
+### 2. **拟物化“暗房”交互界面**
+- **模拟质感：** 提供皮革装订、陈年纸张、拉丝金属和“液晶”高亮等触觉化视觉体验。
+- **物理动效：** 每一个单词的收集过程都伴随着机械感的滑动动画，仿佛在整理实体的卡片索引。
+- **档案式结果页：** 生成的学习指南以“机密档案”样式呈现，非常适合打印或保存为 PDF 长期收藏。
 
+### 3. **智能词汇采集**
+- **自动高亮：** 上传你的“已掌握词汇”列表，CineGlot 将自动调暗熟悉单词，并重点标注潜在的生词障碍。
+- **形态学支持：** 智能处理复数、时态变化和缩写（例如将 "running" 关联至 "run"），确保词汇表精简且准确。
+- **语境扩充工具：** 字幕往往由于显示原因被切碎。利用我们的**语境扩充工具**，只需轻轻一按，即可快速合并前后的字幕行，还原完整的例句。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 4. **AI 驱动的“Aidan”工作流集成**
+- 接入 **Google Gemini 3 Flash**，自动生成准确的释义和自然的原创例句。
+- 专门针对 “Aidan 词书助手” 工作流进行优化，支持一键导出 CSV 格式，方便对接 LaTeX 模版生成出版级 PDF 单词书。
+
+---
+
+## 🛠 技术栈
+
+- **前端框架：** React 19 + TypeScript
+- **样式处理：** Tailwind CSS (深度定制的拟物化配置)
+- **AI 后端：** Google Gemini API (@google/genai)
+- **核心逻辑：** 自研 ASS 解析器及形态学词干分析器 (Lemmatizer)
+
+---
+
+## 📂 用户工作流
+
+1. **载入脚本：** 上传你的电影 `.ass` 字幕文件。
+2. **配置认知：** （可选）上传已掌握词汇的文本文件，系统将自动过滤已识单词。
+3. **分析与采集：** 浏览“对话日志”，点击生词即可将其存入侧边的“采集卡片”。
+4. **精修语境：** 打开已采集单词的编辑窗口，扩充上下文或微调翻译。
+5. **生成档案：** 点击“生成指南”，AI 将处理你的词汇表并转化为结构化的学习档案。
+6. **输出成果：** 打印为 PDF 或导出 CSV 供 Anki 或 LaTeX 模版使用。
+
+---
+
+## 🎨 设计理念：“模拟智能” (Analog Intelligence)
+
+在这个扁平化、冰冷的数字时代，CineGlot 拥抱**拟物化设计**。我们相信，当交互界面拥有真实的物理质感时，学习过程会变得更有“重量感”。所有的阴影、纹理和反物理直觉的卡片堆叠（如逆序排列），都是为了让你的数字学习进度变得触手可及。
+
+---
+
+## 🚀 快速开始
+
+1. 克隆仓库。
+2. 安装依赖：`npm install`。
+3. 在环境变量中设置你的 Google AI Studio API Key：`process.env.API_KEY`。
+4. 启动开发服务器：`npm run dev`。
+
+---
+
+## 🖋 关于本项目
+
+由 [ipangbo.cn](https://ipangbo.cn) 开发。CineGlot 是“英语学习闭环”（输入 -> 处理 -> 输出 -> 复习）理念的一部分，旨在消除被动看电影与主动掌握语言之间的鸿沟。
+
+---
+
+*“看电影不只是娱乐，更是一场关于语境的奇遇。”*

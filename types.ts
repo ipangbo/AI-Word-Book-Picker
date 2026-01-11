@@ -13,12 +13,17 @@ export interface VocabItem {
   translation: string;
   timestamp: string;
   lineId: string;
+  wordIndex: number; // Index of the word in the sentence (0-based)
 }
 
 export interface GeminiStudyGuide {
   word: string;
   definition: string;
   example: string;
+}
+
+export interface AppSettings {
+  autoExpandContext: boolean;
 }
 
 export enum AppState {

@@ -117,16 +117,14 @@ const IRREGULAR_CONTRACTIONS: Record<string, string> = {
     "won't": "will",
     "can't": "can",
     "shan't": "shall",
-    "ain't": "be" // or have, but usually implies being or having. 'be' is a safe fallback for high frequency.
+    "ain't": "be"
 };
 
 // Clean word: lowercase, normalize quotes, remove surrounding punctuation
 export const cleanWord = (text: string): string => {
     let cleaned = text.toLowerCase();
-    // Normalize smart quotes (right single quotation mark, left single, etc) to standard apostrophe
     cleaned = cleaned.replace(/[\u2018\u2019\u201B]/g, "'");
     cleaned = cleaned.replace(/[^a-z']/g, '');
-    // Remove leading/trailing apostrophes (e.g. 'cause -> cause, james' -> james)
     cleaned = cleaned.replace(/^'+|'+$/g, '');
     return cleaned;
 };
@@ -135,33 +133,24 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
     const word = cleanWord(rawWord);
     if (!word) return true; 
 
-    // Helper: Recursively check if a word or its irregular base is known
-    // This ensures 'did' checks 'did' (in case user added it) AND 'do' (irregular base)
     const checkBase = (candidate: string): boolean => {
         if (knownSet.has(candidate)) return true;
         if (IRREGULAR_VERBS[candidate] && knownSet.has(IRREGULAR_VERBS[candidate])) return true;
         return false;
     };
 
-    // 1. Direct Match
     if (checkBase(word)) return true;
 
-    // 2. Contraction Handling
     if (word.includes("'")) {
-        // Check explicit irregular contractions first
         if (IRREGULAR_CONTRACTIONS[word]) {
             if (checkBase(IRREGULAR_CONTRACTIONS[word])) return true;
         }
 
-        // Standard contractions stripping
-        // Handle "n't" (not) - e.g., didn't -> did, mustn't -> must
         if (word.endsWith("n't")) {
             const stem = word.slice(0, -3);
             if (checkBase(stem)) return true;
         }
         
-        // Handle other standard suffixes ('ve, 're, 'll, 'd, 'm, 's)
-        // We iterate to find the match
         const suffixes = ["'ve", "'re", "'ll", "'d", "'m", "'s"];
         for (const suffix of suffixes) {
             if (word.endsWith(suffix)) {
@@ -171,69 +160,57 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
         }
     }
 
-    // 3. Regular Morphology (Suffix Stripping)
-    // We allow recursive stripping (e.g. lovingly -> loving -> love) but usually 1 level is enough for basic checklist.
-    
-    // Plurals / Third person (-s, -es, -ies)
     if (word.endsWith('s')) {
         if (word.endsWith('ies')) {
-             if (checkBase(word.slice(0, -3) + 'y')) return true; // parties -> party
+             if (checkBase(word.slice(0, -3) + 'y')) return true; 
         }
         if (word.endsWith('es')) {
-             if (checkBase(word.slice(0, -2))) return true; // buses -> bus, goes -> go
+             if (checkBase(word.slice(0, -2))) return true; 
         }
-        if (checkBase(word.slice(0, -1))) return true; // cats -> cat
+        if (checkBase(word.slice(0, -1))) return true; 
     }
 
-    // Past tense (-d, -ed, -ied)
     if (word.endsWith('ed')) {
         if (word.endsWith('ied')) {
-             if (checkBase(word.slice(0, -3) + 'y')) return true; // cried -> cry
+             if (checkBase(word.slice(0, -3) + 'y')) return true; 
         }
-        if (checkBase(word.slice(0, -2))) return true; // walked -> walk
-        if (checkBase(word.slice(0, -1))) return true; // lived -> live
+        if (checkBase(word.slice(0, -2))) return true; 
+        if (checkBase(word.slice(0, -1))) return true; 
         
-        // Double consonant: stopped -> stop
         const stem = word.slice(0, -2);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
         }
     }
 
-    // Progressive (-ing)
     if (word.endsWith('ing')) {
-        if (checkBase(word.slice(0, -3))) return true; // walking -> walk
-        if (checkBase(word.slice(0, -3) + 'e')) return true; // making -> make
+        if (checkBase(word.slice(0, -3))) return true; 
+        if (checkBase(word.slice(0, -3) + 'e')) return true; 
         
-        // Double consonant: running -> run
         const stem = word.slice(0, -3);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
         }
     }
 
-    // Adverbs (-ly)
     if (word.endsWith('ly')) {
-        if (checkBase(word.slice(0, -2))) return true; // quickly -> quick
+        if (checkBase(word.slice(0, -2))) return true; 
         if (word.endsWith('ily')) {
-             if (checkBase(word.slice(0, -3) + 'y')) return true; // happily -> happy
+             if (checkBase(word.slice(0, -3) + 'y')) return true; 
         }
     }
 
-    // Comparative / Superlative (-er, -est)
     if (word.endsWith('er')) {
-        if (checkBase(word.slice(0, -2))) return true; // faster -> fast
-        if (checkBase(word.slice(0, -2) + 'e')) return true; // larger -> large
-        // big -> bigger
+        if (checkBase(word.slice(0, -2))) return true; 
+        if (checkBase(word.slice(0, -2) + 'e')) return true; 
         const stem = word.slice(0, -2);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
         }
     }
     if (word.endsWith('est')) {
-        if (checkBase(word.slice(0, -3))) return true; // fastest -> fast
-        if (checkBase(word.slice(0, -3) + 'e')) return true; // largest -> large
-        // big -> biggest
+        if (checkBase(word.slice(0, -3))) return true; 
+        if (checkBase(word.slice(0, -3) + 'e')) return true; 
         const stem = word.slice(0, -3);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
@@ -241,4 +218,81 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
     }
 
     return false;
+};
+
+// --- New Logic for Auto-Context ---
+
+import { SubtitleLine } from "../types";
+
+// Checks if a text string ends with a sentence terminator (. ? !), optionally followed by quote or space
+const endsWithTerminator = (text: string): boolean => {
+    return /[.?!]["']?\s*$/.test(text);
+};
+
+// Checks if text starts with a capital letter (simple heuristic for sentence start, though not perfect)
+const startsWithCapital = (text: string): boolean => {
+    return /^[A-Z]/.test(text.trim());
+};
+
+export const getExpandedContext = (
+    currentIndex: number, 
+    subtitles: SubtitleLine[], 
+    maxDepth: number = 5
+): { fullEnglish: string; fullChinese: string } => {
+    if (currentIndex < 0 || currentIndex >= subtitles.length) {
+        return { fullEnglish: "", fullChinese: "" };
+    }
+
+    let startIndex = currentIndex;
+    let endIndex = currentIndex;
+
+    // 1. Search Backwards
+    // We move backwards as long as the *previous* line did NOT end with a terminator.
+    // If the previous line ends with ".", it means the current block likely starts a new sentence.
+    // Safety break: maxDepth
+    let depth = 0;
+    while (startIndex > 0 && depth < maxDepth) {
+        const prevLine = subtitles[startIndex - 1];
+        if (endsWithTerminator(prevLine.englishText)) {
+            // Previous line ended a sentence. Stop here. current 'startIndex' is the start of new sentence.
+            break;
+        }
+        // Also stop if current line looks like a very strong start (e.g. "Captain, look!") 
+        // BUT subtitles often break midway, e.g. "I went" / "to the store". "to" is lowercase.
+        // So checking lowercase is better. If current line starts with Uppercase, it MIGHT be a start,
+        // but checking punctuation of previous line is safer for dialogue lists.
+        
+        startIndex--;
+        depth++;
+    }
+
+    // 2. Search Forwards
+    // We move forwards as long as the *current pointer* line does NOT end with a terminator.
+    depth = 0;
+    while (endIndex < subtitles.length - 1 && depth < maxDepth) {
+        const currLine = subtitles[endIndex];
+        if (endsWithTerminator(currLine.englishText)) {
+            // Current line ends the sentence. Stop here.
+            break;
+        }
+        endIndex++;
+        depth++;
+    }
+
+    // 3. Construct the merged strings
+    const englishParts: string[] = [];
+    const chineseParts: string[] = [];
+
+    for (let i = startIndex; i <= endIndex; i++) {
+        englishParts.push(subtitles[i].englishText.trim());
+        // Chinese context usually matches 1:1 in valid .ass files, but sometimes empty.
+        if (subtitles[i].chineseText) {
+            chineseParts.push(subtitles[i].chineseText.trim());
+        }
+    }
+
+    return {
+        fullEnglish: englishParts.join(' '),
+        fullChinese: chineseParts.join(' ')
+    };
 };
