@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { SubtitleTable } from './components/SubtitleTable';
@@ -6,7 +5,7 @@ import { StudyGuideView } from './components/StudyGuideView';
 import { AppState, SubtitleLine, VocabItem, GeminiStudyGuide, AppSettings } from './types';
 import { parseAssSubtitle } from './utils/parser';
 import { generateStudyGuide } from './services/geminiService';
-import { cleanWord, getExpandedContext } from './utils/textUtils';
+import { cleanWord, getExpandedContext, getSentenceBoundaries } from './utils/textUtils';
 
 // Import New Components
 import { Header } from './components/layout/Header';
@@ -140,8 +139,6 @@ function App() {
 
   const handleGenerateGuide = async () => {
     setIsGenerating(true);
-    // Sort before sending? Not strictly necessary for API, but good for consistency.
-    // For generation we usually want logical order, so lets sort by timestamp.
     const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
     const guide = await generateStudyGuide(sortedList);
     setStudyGuide(guide);
@@ -155,40 +152,48 @@ function App() {
   const handleExportCSV = () => {
     const header = "Timestamp,English Sentence,Chinese Sentence,Hard Words\n";
     
-    // 1. Sort vocabList by timestamp to ensure chronological order
+    // Sort vocabList by timestamp
     const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
 
-    // 2. Smart Deduplication / Grouping
-    // Instead of grouping by Line ID, we group by the *Content Fingerprint* (Context + Translation).
-    // This solves the issue where split sentences (auto-context) create duplicate rows.
+    // STABLE GROUPING LOGIC
+    // Instead of grouping by raw text (which can vary slightly), we group by Subtitle Range.
     const grouped = sortedList.reduce((acc, item) => {
-      // Create a unique key based on the content (trimming to avoid whitespace issues)
-      const contentKey = `${item.context.trim()}::${item.translation.trim()}`;
+      const lineIdx = parseInt(item.lineId.split('-')[1], 10);
       
-      if (!acc[contentKey]) {
-        acc[contentKey] = {
-          // Use the timestamp of the first occurrence (sortedList handles order)
+      // Calculate stable boundaries for this word's source line
+      const { start, end } = getSentenceBoundaries(lineIdx, subtitles);
+      const rangeId = `${start}-${end}`;
+      
+      if (!acc[rangeId]) {
+        acc[rangeId] = {
           timestamp: item.timestamp.split('.')[0], 
           english: item.context,
           chinese: item.translation || '',
-          words: new Set<string>() // Use Set to avoid duplicate words within the same sentence
+          words: new Set<string>()
         };
       }
       
-      acc[contentKey].words.add(item.word);
+      // Add word to set
+      acc[rangeId].words.add(item.word);
       
-      // Robustness: ensure we keep the earliest timestamp if sort order wasn't perfect
-      if (item.timestamp < acc[contentKey].timestamp) {
-          acc[contentKey].timestamp = item.timestamp.split('.')[0];
+      // Heuristic: If current item has a LONGER context than existing, use it.
+      // This handles cases where one word clicked resulted in more expansion or user manual edits.
+      if (item.context.length > acc[rangeId].english.length) {
+          acc[rangeId].english = item.context;
+          acc[rangeId].chinese = item.translation || acc[rangeId].chinese;
+      }
+      
+      // Always keep the earliest timestamp
+      if (item.timestamp < acc[rangeId].timestamp) {
+          acc[rangeId].timestamp = item.timestamp.split('.')[0];
       }
 
       return acc;
     }, {} as Record<string, { timestamp: string, english: string, chinese: string, words: Set<string> }>);
 
-    // 3. Generate CSV Rows
-    const rows = (Object.values(grouped) as Array<{ timestamp: string, english: string, chinese: string, words: Set<string> }>).map(group => {
+    // Generate CSV Rows
+    const rows = Object.values(grouped).map(group => {
       const csvEscape = (str: string) => `"${str.replace(/"/g, '""')}"`;
-      // Convert Set back to Array for JSON output
       const jsonWords = JSON.stringify(Array.from(group.words));
       return `${csvEscape(group.timestamp)},${csvEscape(group.english)},${csvEscape(group.chinese)},${csvEscape(jsonWords)}`;
     }).join("\n");

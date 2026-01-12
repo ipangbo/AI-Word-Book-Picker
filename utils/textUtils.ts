@@ -1,7 +1,8 @@
-
 // Utilities for word normalization and morphology checking
 
-// Comprehensive map of common irregular verbs to their base form
+import { SubtitleLine } from "../types";
+
+// Comprehensive map of common irregular verbs
 const IRREGULAR_VERBS: Record<string, string> = {
   "arisen": "arise", "arose": "arise",
   "ate": "eat", "eaten": "eat",
@@ -112,7 +113,6 @@ const IRREGULAR_VERBS: Record<string, string> = {
   "might": "may"
 };
 
-// Irregular contractions that can't be handled by simple stripping
 const IRREGULAR_CONTRACTIONS: Record<string, string> = {
     "won't": "will",
     "can't": "can",
@@ -120,7 +120,6 @@ const IRREGULAR_CONTRACTIONS: Record<string, string> = {
     "ain't": "be"
 };
 
-// Clean word: lowercase, normalize quotes, remove surrounding punctuation
 export const cleanWord = (text: string): string => {
     let cleaned = text.toLowerCase();
     cleaned = cleaned.replace(/[\u2018\u2019\u201B]/g, "'");
@@ -145,12 +144,10 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
         if (IRREGULAR_CONTRACTIONS[word]) {
             if (checkBase(IRREGULAR_CONTRACTIONS[word])) return true;
         }
-
         if (word.endsWith("n't")) {
             const stem = word.slice(0, -3);
             if (checkBase(stem)) return true;
         }
-        
         const suffixes = ["'ve", "'re", "'ll", "'d", "'m", "'s"];
         for (const suffix of suffixes) {
             if (word.endsWith(suffix)) {
@@ -176,7 +173,6 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
         }
         if (checkBase(word.slice(0, -2))) return true; 
         if (checkBase(word.slice(0, -1))) return true; 
-        
         const stem = word.slice(0, -2);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
@@ -186,7 +182,6 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
     if (word.endsWith('ing')) {
         if (checkBase(word.slice(0, -3))) return true; 
         if (checkBase(word.slice(0, -3) + 'e')) return true; 
-        
         const stem = word.slice(0, -3);
         if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) {
              if (checkBase(stem.slice(0, -1))) return true;
@@ -216,76 +211,68 @@ export const isWordKnown = (rawWord: string, knownSet: Set<string>): boolean => 
              if (checkBase(stem.slice(0, -1))) return true;
         }
     }
-
     return false;
 };
 
 // --- New Logic for Auto-Context ---
 
-import { SubtitleLine } from "../types";
-
-// Checks if a text string ends with a sentence terminator (. ? !), optionally followed by quote or space
 const endsWithTerminator = (text: string): boolean => {
     return /[.?!]["']?\s*$/.test(text);
 };
 
-// Checks if text starts with a capital letter (simple heuristic for sentence start, though not perfect)
-const startsWithCapital = (text: string): boolean => {
-    return /^[A-Z]/.test(text.trim());
+/**
+ * Stable Boundary Detection
+ * Find the start and end indices of a logical sentence block.
+ */
+export const getSentenceBoundaries = (
+    currentIndex: number, 
+    subtitles: SubtitleLine[], 
+    maxDepth: number = 8
+): { start: number; end: number } => {
+    if (currentIndex < 0 || currentIndex >= subtitles.length) {
+        return { start: currentIndex, end: currentIndex };
+    }
+
+    let start = currentIndex;
+    let end = currentIndex;
+
+    // Search Backwards
+    let depth = 0;
+    while (start > 0 && depth < maxDepth) {
+        const prevLine = subtitles[start - 1];
+        if (endsWithTerminator(prevLine.englishText)) break;
+        // Speaker change often marks a boundary
+        if (subtitles[start].englishText.trim().startsWith('-')) break;
+        start--;
+        depth++;
+    }
+
+    // Search Forwards
+    depth = 0;
+    while (end < subtitles.length - 1 && depth < maxDepth) {
+        const currLine = subtitles[end];
+        if (endsWithTerminator(currLine.englishText)) break;
+        // If next line starts with speaker dash, current line is likely the end
+        if (subtitles[end + 1].englishText.trim().startsWith('-')) break;
+        end++;
+        depth++;
+    }
+
+    return { start, end };
 };
 
 export const getExpandedContext = (
     currentIndex: number, 
     subtitles: SubtitleLine[], 
-    maxDepth: number = 5
+    maxDepth: number = 8
 ): { fullEnglish: string; fullChinese: string } => {
-    if (currentIndex < 0 || currentIndex >= subtitles.length) {
-        return { fullEnglish: "", fullChinese: "" };
-    }
+    const { start, end } = getSentenceBoundaries(currentIndex, subtitles, maxDepth);
 
-    let startIndex = currentIndex;
-    let endIndex = currentIndex;
-
-    // 1. Search Backwards
-    // We move backwards as long as the *previous* line did NOT end with a terminator.
-    // If the previous line ends with ".", it means the current block likely starts a new sentence.
-    // Safety break: maxDepth
-    let depth = 0;
-    while (startIndex > 0 && depth < maxDepth) {
-        const prevLine = subtitles[startIndex - 1];
-        if (endsWithTerminator(prevLine.englishText)) {
-            // Previous line ended a sentence. Stop here. current 'startIndex' is the start of new sentence.
-            break;
-        }
-        // Also stop if current line looks like a very strong start (e.g. "Captain, look!") 
-        // BUT subtitles often break midway, e.g. "I went" / "to the store". "to" is lowercase.
-        // So checking lowercase is better. If current line starts with Uppercase, it MIGHT be a start,
-        // but checking punctuation of previous line is safer for dialogue lists.
-        
-        startIndex--;
-        depth++;
-    }
-
-    // 2. Search Forwards
-    // We move forwards as long as the *current pointer* line does NOT end with a terminator.
-    depth = 0;
-    while (endIndex < subtitles.length - 1 && depth < maxDepth) {
-        const currLine = subtitles[endIndex];
-        if (endsWithTerminator(currLine.englishText)) {
-            // Current line ends the sentence. Stop here.
-            break;
-        }
-        endIndex++;
-        depth++;
-    }
-
-    // 3. Construct the merged strings
     const englishParts: string[] = [];
     const chineseParts: string[] = [];
 
-    for (let i = startIndex; i <= endIndex; i++) {
+    for (let i = start; i <= end; i++) {
         englishParts.push(subtitles[i].englishText.trim());
-        // Chinese context usually matches 1:1 in valid .ass files, but sometimes empty.
         if (subtitles[i].chineseText) {
             chineseParts.push(subtitles[i].chineseText.trim());
         }
