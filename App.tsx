@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { SubtitleTable } from './components/SubtitleTable';
 import { StudyGuideView } from './components/StudyGuideView';
-import { AppState, SubtitleLine, VocabItem, GeminiStudyGuide, AppSettings } from './types';
+import { AppState, SubtitleLine, VocabItem, GeminiStudyGuide, AppSettings, AppNotification } from './types';
 import { parseAssSubtitle } from './utils/parser';
 import { generateStudyGuide } from './services/geminiService';
 import { cleanWord, getExpandedContext, getSentenceBoundaries } from './utils/textUtils';
@@ -13,6 +13,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { WordEditModal } from './components/modals/WordEditModal';
 import { WorkflowModal } from './components/modals/WorkflowModal';
 import { SettingsModal } from './components/modals/SettingsModal';
+import { ToastNotification } from './components/ui/ToastNotification';
 
 function App() {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
@@ -23,6 +24,9 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
+  // Notification State
+  const [notification, setNotification] = useState<AppNotification | null>(null);
+
   // Settings State
   const [settings, setSettings] = useState<AppSettings>({
     autoExpandContext: true // Default on as requested
@@ -55,6 +59,15 @@ function App() {
       mainContent?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const showNotification = (type: 'info' | 'warning' | 'error', title: string, message: string) => {
+      setNotification({
+          id: Date.now(),
+          type,
+          title,
+          message
+      });
+  };
+
   const handleFileUpload = async (file: File) => {
     const text = await file.text();
     const parsed = parseAssSubtitle(text);
@@ -67,6 +80,7 @@ function App() {
         const text = await e.target.files[0].text();
         const words = text.split(/\r?\n/).map(w => cleanWord(w)).filter(w => w.length > 0);
         setKnownWords(new Set(words));
+        showNotification('info', 'Dictionary Loaded', `Successfully filtered ${words.length} known words.`);
         e.target.value = '';
     }
   };
@@ -138,14 +152,32 @@ function App() {
   };
 
   const handleGenerateGuide = async () => {
+    // Check for API Key presence before starting
+    if (!process.env.API_KEY) {
+        showNotification(
+            'error', 
+            'System Error: No Key', 
+            'Gemini API Key is missing. Please configure your environment variables to enable AI generation.'
+        );
+        return;
+    }
+
     setIsGenerating(true);
-    const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
-    const guide = await generateStudyGuide(sortedList);
-    setStudyGuide(guide);
-    setIsGenerating(false);
     
-    if (guide.length > 0) {
-        setAppState(AppState.RESULT);
+    try {
+        const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+        const guide = await generateStudyGuide(sortedList);
+        
+        if (guide && guide.length > 0) {
+            setStudyGuide(guide);
+            setAppState(AppState.RESULT);
+        } else {
+            showNotification('warning', 'Generation Failed', 'The AI returned an empty response. Please try again.');
+        }
+    } catch (error) {
+        showNotification('error', 'Connection Error', 'Failed to communicate with Gemini. Please check your network.');
+    } finally {
+        setIsGenerating(false);
     }
   };
   
@@ -155,9 +187,16 @@ function App() {
     // Sort vocabList by timestamp
     const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
 
+    interface GroupedItem { 
+      timestamp: string; 
+      english: string; 
+      chinese: string; 
+      items: VocabItem[];
+    }
+
     // STABLE GROUPING LOGIC
     // Instead of grouping by raw text (which can vary slightly), we group by Subtitle Range.
-    const grouped = sortedList.reduce((acc, item) => {
+    const grouped = sortedList.reduce<Record<string, GroupedItem>>((acc, item) => {
       const lineIdx = parseInt(item.lineId.split('-')[1], 10);
       
       // Calculate stable boundaries for this word's source line
@@ -169,12 +208,12 @@ function App() {
           timestamp: item.timestamp.split('.')[0], 
           english: item.context,
           chinese: item.translation || '',
-          words: new Set<string>()
+          items: []
         };
       }
       
-      // Add word to set
-      acc[rangeId].words.add(item.word);
+      // Add VocabItem to array
+      acc[rangeId].items.push(item);
       
       // Heuristic: If current item has a LONGER context than existing, use it.
       // This handles cases where one word clicked resulted in more expansion or user manual edits.
@@ -189,12 +228,24 @@ function App() {
       }
 
       return acc;
-    }, {} as Record<string, { timestamp: string, english: string, chinese: string, words: Set<string> }>);
+    }, {});
 
     // Generate CSV Rows
-    const rows = Object.values(grouped).map(group => {
+    const rows = Object.values(grouped).map((group: GroupedItem) => {
       const csvEscape = (str: string) => `"${str.replace(/"/g, '""')}"`;
-      const jsonWords = JSON.stringify(Array.from(group.words));
+
+      // Sort items by line ID and word index to restore sentence appearance order
+      const sortedItems = group.items.sort((a, b) => {
+          const lineA = parseInt(a.lineId.split('-')[1], 10);
+          const lineB = parseInt(b.lineId.split('-')[1], 10);
+          if (lineA !== lineB) return lineA - lineB;
+          return a.wordIndex - b.wordIndex;
+      });
+
+      // Extract unique words from sorted items (Set preserves insertion order which is now sorted)
+      const uniqueWords = Array.from(new Set(sortedItems.map(i => i.word)));
+
+      const jsonWords = JSON.stringify(uniqueWords);
       return `${csvEscape(group.timestamp)},${csvEscape(group.english)},${csvEscape(group.chinese)},${csvEscape(jsonWords)}`;
     }).join("\n");
 
@@ -209,6 +260,18 @@ function App() {
 
   return (
     <div className="h-screen bg-[#2b2b2b] bg-leather-texture flex flex-col overflow-hidden">
+      
+      {/* Toast Notification Container */}
+      {notification && (
+          <ToastNotification 
+              key={notification.id}
+              type={notification.type}
+              title={notification.title}
+              message={notification.message}
+              onClose={() => setNotification(null)}
+          />
+      )}
+
       <Header 
         appState={appState}
         vocabList={vocabList}
@@ -235,6 +298,7 @@ function App() {
                  selectedWords={selectedWords} 
                  toggleWord={toggleWord} 
                  knownWords={knownWords}
+                 vocabList={vocabList}
                />
             </div>
 

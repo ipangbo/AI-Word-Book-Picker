@@ -92,14 +92,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onUpdate
                     {/* Industrial Info Section */}
                     <div className="mt-10 flex flex-col items-center gap-2">
                         <div className="w-12 h-px bg-slate-200"></div>
-                        <a 
-                            href="https://ipangbo.cn" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-slate-400 hover:text-blue-600 font-mono text-[9px] uppercase tracking-widest transition-colors"
-                        >
-                            Visit Laboratory: ipangbo.cn
-                        </a>
+                        <div className="text-slate-400 font-mono text-[9px] uppercase tracking-widest text-center">
+                            版权所有 &copy; <a href="https://ipangbo.cn" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 underline decoration-slate-300 underline-offset-2 transition-colors">ipangbo.cn</a> • VER 1.2
+                        </div>
                     </div>
                 </div>
 

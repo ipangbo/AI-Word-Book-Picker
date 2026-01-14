@@ -32,3 +32,12 @@ export enum AppState {
   GENERATING = 'GENERATING',
   RESULT = 'RESULT'
 }
+
+export type NotificationType = 'info' | 'warning' | 'error';
+
+export interface AppNotification {
+  id: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+}

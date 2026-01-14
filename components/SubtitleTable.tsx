@@ -1,17 +1,29 @@
 import React, { useMemo } from 'react';
-import { SubtitleLine } from '../types';
+import { SubtitleLine, VocabItem } from '../types';
 import { Word } from './Word';
-import { isWordKnown } from '../utils/textUtils';
+import { isWordKnown, cleanWord } from '../utils/textUtils';
 
 interface SubtitleTableProps {
   subtitles: SubtitleLine[];
   selectedWords: Set<string>; // Format: "lineId-wordIndex"
   toggleWord: (lineId: string, wordIndex: number, word: string) => void;
   knownWords: Set<string>;
+  vocabList: VocabItem[];
 }
 
-export const SubtitleTable: React.FC<SubtitleTableProps> = ({ subtitles, selectedWords, toggleWord, knownWords }) => {
+export const SubtitleTable: React.FC<SubtitleTableProps> = ({ subtitles, selectedWords, toggleWord, knownWords, vocabList }) => {
   
+  // Memoize the set of words that are currently in the vocab list (learning set).
+  // These words will be treated as "temporarily known" to avoid auto-highlighting duplications.
+  const learningSet = useMemo(() => {
+    const set = new Set<string>();
+    vocabList.forEach(v => {
+        // Normalize to ensure matching works with isWordKnown logic
+        set.add(cleanWord(v.word));
+    });
+    return set;
+  }, [vocabList]);
+
   return (
     <div className="w-full max-w-5xl mx-auto bg-paper bg-paper-texture min-h-[600px] shadow-paper rounded-sm relative overflow-hidden">
       {/* Red Margin Line - Fixed at left-24 (96px) */}
@@ -51,8 +63,12 @@ export const SubtitleTable: React.FC<SubtitleTableProps> = ({ subtitles, selecte
                   // Determine if auto-highlighted:
                   // 1. Not manually selected
                   // 2. Known words set is loaded (size > 0)
-                  // 3. Word is NOT known
-                  const isAuto = !isSelected && knownWords.size > 0 && !isWordKnown(word, knownWords);
+                  // 3. Word is NOT known (not in uploaded knownWords)
+                  // 4. Word is NOT currently in the learning list (vocabList)
+                  const isAuto = !isSelected && 
+                                 knownWords.size > 0 && 
+                                 !isWordKnown(word, knownWords) && 
+                                 !isWordKnown(word, learningSet);
 
                   return (
                     <React.Fragment key={idx}>
