@@ -184,8 +184,34 @@ function App() {
   const handleExportCSV = () => {
     const header = "Timestamp,English Sentence,Chinese Sentence,Hard Words\n";
     
-    // Sort vocabList by timestamp
-    const sortedList = [...vocabList].sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+    // 1. Create a working copy of the vocab list
+    // We do this to perform context unification without mutating the main state permanently (optional choice, ensures export consistency)
+    let processedList = vocabList.map(v => ({...v}));
+
+    // 2. Context Unification Logic
+    // If Item A's context is contained within Item B's context (and B is longer), 
+    // update Item A to share Item B's expanded context.
+    // This handles the user case: expanding one word's context should apply to other words in that same sentence flow.
+    for (let i = 0; i < processedList.length; i++) {
+        for (let j = 0; j < processedList.length; j++) {
+            if (i === j) continue;
+            
+            const master = processedList[i];
+            const target = processedList[j];
+            const masterCtx = master.context.trim();
+            const targetCtx = target.context.trim();
+
+            // If master contains target, and master is actually longer (is the superset)
+            if (masterCtx.includes(targetCtx) && masterCtx.length > targetCtx.length) {
+                target.context = master.context;
+                target.translation = master.translation;
+                // Note: We don't overwrite timestamp here, we keep the word's specific appearance time.
+            }
+        }
+    }
+
+    // Sort processed list by timestamp for grouping
+    processedList.sort((a,b) => a.timestamp.localeCompare(b.timestamp));
 
     interface GroupedItem { 
       timestamp: string; 
@@ -194,17 +220,15 @@ function App() {
       items: VocabItem[];
     }
 
-    // STABLE GROUPING LOGIC
-    // Instead of grouping by raw text (which can vary slightly), we group by Subtitle Range.
-    const grouped = sortedList.reduce<Record<string, GroupedItem>>((acc, item) => {
-      const lineIdx = parseInt(item.lineId.split('-')[1], 10);
+    // 3. Grouping Logic
+    // Now that contexts are unified, we group by the Context String content.
+    const grouped = processedList.reduce<Record<string, GroupedItem>>((acc, item) => {
+      // Use the context itself as the grouping key. 
+      // Normalize whitespace to avoid splitting identical contexts.
+      const key = item.context.trim();
       
-      // Calculate stable boundaries for this word's source line
-      const { start, end } = getSentenceBoundaries(lineIdx, subtitles);
-      const rangeId = `${start}-${end}`;
-      
-      if (!acc[rangeId]) {
-        acc[rangeId] = {
+      if (!acc[key]) {
+        acc[key] = {
           timestamp: item.timestamp.split('.')[0], 
           english: item.context,
           chinese: item.translation || '',
@@ -212,19 +236,11 @@ function App() {
         };
       }
       
-      // Add VocabItem to array
-      acc[rangeId].items.push(item);
+      acc[key].items.push(item);
       
-      // Heuristic: If current item has a LONGER context than existing, use it.
-      // This handles cases where one word clicked resulted in more expansion or user manual edits.
-      if (item.context.length > acc[rangeId].english.length) {
-          acc[rangeId].english = item.context;
-          acc[rangeId].chinese = item.translation || acc[rangeId].chinese;
-      }
-      
-      // Always keep the earliest timestamp
-      if (item.timestamp < acc[rangeId].timestamp) {
-          acc[rangeId].timestamp = item.timestamp.split('.')[0];
+      // Always keep the earliest timestamp for the group
+      if (item.timestamp < acc[key].timestamp) {
+          acc[key].timestamp = item.timestamp.split('.')[0];
       }
 
       return acc;
@@ -234,7 +250,7 @@ function App() {
     const rows = Object.values(grouped).map((group: GroupedItem) => {
       const csvEscape = (str: string) => `"${str.replace(/"/g, '""')}"`;
 
-      // Sort items by line ID and word index to restore sentence appearance order
+      // Sort items by line ID and word index to restore sentence appearance order within the merged block
       const sortedItems = group.items.sort((a, b) => {
           const lineA = parseInt(a.lineId.split('-')[1], 10);
           const lineB = parseInt(b.lineId.split('-')[1], 10);
@@ -242,10 +258,10 @@ function App() {
           return a.wordIndex - b.wordIndex;
       });
 
-      // Extract unique words from sorted items (Set preserves insertion order which is now sorted)
+      // Extract unique words
       const uniqueWords = Array.from(new Set(sortedItems.map(i => i.word)));
-
       const jsonWords = JSON.stringify(uniqueWords);
+      
       return `${csvEscape(group.timestamp)},${csvEscape(group.english)},${csvEscape(group.chinese)},${csvEscape(jsonWords)}`;
     }).join("\n");
 
