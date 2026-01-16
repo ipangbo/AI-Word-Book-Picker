@@ -185,27 +185,95 @@ function App() {
     const header = "Timestamp,English Sentence,Chinese Sentence,Hard Words\n";
     
     // 1. Create a working copy of the vocab list
-    // We do this to perform context unification without mutating the main state permanently (optional choice, ensures export consistency)
     let processedList = vocabList.map(v => ({...v}));
 
-    // 2. Context Unification Logic
-    // If Item A's context is contained within Item B's context (and B is longer), 
-    // update Item A to share Item B's expanded context.
-    // This handles the user case: expanding one word's context should apply to other words in that same sentence flow.
-    for (let i = 0; i < processedList.length; i++) {
-        for (let j = 0; j < processedList.length; j++) {
-            if (i === j) continue;
-            
-            const master = processedList[i];
-            const target = processedList[j];
-            const masterCtx = master.context.trim();
-            const targetCtx = target.context.trim();
+    // Helper: Logic to determine overlap and return merged string
+    // Handles:
+    // 1. Containment (A contains B)
+    // 2. Chaining (A ends with start of B)
+    const mergeTwoStrings = (str1: string, str2: string): string | null => {
+        const s1 = str1.trim();
+        const s2 = str2.trim();
+        if (!s1 || !s2) return null;
+        if (s1 === s2) return null; // Identical, handled by grouping
 
-            // If master contains target, and master is actually longer (is the superset)
-            if (masterCtx.includes(targetCtx) && masterCtx.length > targetCtx.length) {
-                target.context = master.context;
-                target.translation = master.translation;
-                // Note: We don't overwrite timestamp here, we keep the word's specific appearance time.
+        // 1. Containment Check
+        if (s1.includes(s2)) return s1;
+        if (s2.includes(s1)) return s2;
+
+        // 2. Overlap/Chaining Check
+        // We require a minimum overlap to avoid false positives (e.g., matching just "I")
+        // Since these are sentences, 10 characters is a safe bet, or less if short sentences.
+        const minOverlap = 8; 
+        const limit = Math.min(s1.length, s2.length);
+
+        // Check: S1 ends with S2 start (S1 + S2)
+        // Iterate backwards from max possible overlap
+        for (let len = limit; len >= minOverlap; len--) {
+            // Get suffix of S1
+            const suffix = s1.substring(s1.length - len);
+            // Get prefix of S2
+            const prefix = s2.substring(0, len);
+            
+            if (suffix === prefix) {
+                return s1 + s2.substring(len); // Merge
+            }
+        }
+
+        // Check: S2 ends with S1 start (S2 + S1)
+        for (let len = limit; len >= minOverlap; len--) {
+            const suffix = s2.substring(s2.length - len);
+            const prefix = s1.substring(0, len);
+            
+            if (suffix === prefix) {
+                return s2 + s1.substring(len); // Merge
+            }
+        }
+
+        return null;
+    };
+
+    // 2. Iterative Merging Logic
+    // Repeat until no more merges occur (stable state)
+    let hasChanges = true;
+    while (hasChanges) {
+        hasChanges = false;
+        
+        for (let i = 0; i < processedList.length; i++) {
+            for (let j = 0; j < processedList.length; j++) {
+                if (i === j) continue;
+                
+                // Attempt to merge English Context
+                const mergedEnglish = mergeTwoStrings(processedList[i].context, processedList[j].context);
+                
+                // If English overlaps, we assume they are related. 
+                // We should also attempt to merge the Chinese translation to match the new English context.
+                if (mergedEnglish) {
+                    // Detect if state actually changes
+                    const engChanged = mergedEnglish !== processedList[i].context || mergedEnglish !== processedList[j].context;
+                    
+                    if (engChanged) {
+                        // Attempt to merge Chinese (using same overlap logic)
+                        // Fallback: If Chinese doesn't strictly overlap (e.g. translation diffs), 
+                        // we prefer the translation of the 'superset' or just keep existing if logic fails.
+                        // But usually, if English overlaps, Chinese does too in subtitles.
+                        const currentChiI = processedList[i].translation || "";
+                        const currentChiJ = processedList[j].translation || "";
+                        const mergedChinese = mergeTwoStrings(currentChiI, currentChiJ);
+
+                        // Update BOTH items to the merged state
+                        // This groups them together effectively
+                        const newTranslation = mergedChinese || (currentChiI.length > currentChiJ.length ? currentChiI : currentChiJ);
+
+                        processedList[i].context = mergedEnglish;
+                        processedList[i].translation = newTranslation;
+                        
+                        processedList[j].context = mergedEnglish;
+                        processedList[j].translation = newTranslation;
+
+                        hasChanges = true;
+                    }
+                }
             }
         }
     }
@@ -221,10 +289,8 @@ function App() {
     }
 
     // 3. Grouping Logic
-    // Now that contexts are unified, we group by the Context String content.
     const grouped = processedList.reduce<Record<string, GroupedItem>>((acc, item) => {
-      // Use the context itself as the grouping key. 
-      // Normalize whitespace to avoid splitting identical contexts.
+      // Group by the normalized context string
       const key = item.context.trim();
       
       if (!acc[key]) {
