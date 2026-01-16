@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useMemo } from 'react';
 import { ModalOverlay } from './ModalOverlay';
 import { AppSettings } from '../../types';
 
@@ -16,6 +17,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onUpdate
             autoExpandContext: !settings.autoExpandContext
         });
     };
+
+    // Build Time Formatting Logic
+    const buildTag = useMemo(() => {
+        try {
+            // @ts-ignore - __BUILD_TIMESTAMP__ is injected via vite.config.ts define
+            const rawTs = typeof __BUILD_TIMESTAMP__ !== 'undefined' ? __BUILD_TIMESTAMP__ : null;
+            
+            if (!rawTs) return "Click-to-Run";
+
+            const date = new Date(rawTs);
+            if (isNaN(date.getTime())) return "Click-to-Run";
+
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            const yyyy = date.getFullYear();
+            const mm = pad(date.getMonth() + 1);
+            const dd = pad(date.getDate());
+            const hh = pad(date.getHours());
+            const min = pad(date.getMinutes());
+
+            return `${yyyy}${mm}${dd}${hh}${min}`;
+        } catch (e) {
+            return "Click-to-Run";
+        }
+    }, []);
 
     return (
         <ModalOverlay onClose={onClose} dark={false}>
@@ -93,7 +118,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onUpdate
                     <div className="mt-10 flex flex-col items-center gap-2">
                         <div className="w-12 h-px bg-slate-200"></div>
                         <div className="text-slate-400 font-mono text-[9px] uppercase tracking-widest text-center">
-                            版权所有 &copy; <a href="https://ipangbo.cn" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 underline decoration-slate-300 underline-offset-2 transition-colors">ipangbo.cn</a> • VER 1.2
+                            版权所有 &copy; <a href="https://ipangbo.cn" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 underline decoration-slate-300 underline-offset-2 transition-colors">ipangbo.cn</a> • VER 1.2 • {buildTag}
                         </div>
                     </div>
                 </div>
